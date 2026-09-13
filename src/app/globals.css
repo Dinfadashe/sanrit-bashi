@@ -1,0 +1,58 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #0f172a;
+
+  /* SANRIT BASHI brand palette, sampled from the logo */
+  --brand-blue-50: #eef4fd;
+  --brand-blue-100: #d7e6fa;
+  --brand-blue-400: #2f6fd6;
+  --brand-blue-500: #1a56c4;
+  --brand-blue-600: #14449e;
+  --brand-blue-700: #0f3578;
+
+  --brand-green-50: #eefaec;
+  --brand-green-100: #d3f2cd;
+  --brand-green-400: #63c93a;
+  --brand-green-500: #3fa535;
+  --brand-green-600: #2f8228;
+
+  --brand-navy: #0f172a;
+  --brand-slate: #475569;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+
+  --color-brand-blue-50: var(--brand-blue-50);
+  --color-brand-blue-100: var(--brand-blue-100);
+  --color-brand-blue-400: var(--brand-blue-400);
+  --color-brand-blue-500: var(--brand-blue-500);
+  --color-brand-blue-600: var(--brand-blue-600);
+  --color-brand-blue-700: var(--brand-blue-700);
+
+  --color-brand-green-50: var(--brand-green-50);
+  --color-brand-green-100: var(--brand-green-100);
+  --color-brand-green-400: var(--brand-green-400);
+  --color-brand-green-500: var(--brand-green-500);
+  --color-brand-green-600: var(--brand-green-600);
+
+  --color-brand-navy: var(--brand-navy);
+  --color-brand-slate: var(--brand-slate);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+}
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
+
