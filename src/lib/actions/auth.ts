@@ -77,6 +77,19 @@ export async function loginAction(_prev: ActionResult, formData: FormData): Prom
   const { error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
+    // Logged server-side (visible in Vercel's function logs) so the real
+    // cause is diagnosable — the client-facing message stays generic for
+    // most cases (avoids confirming whether an account exists), but we DO
+    // surface "email not confirmed" specifically since that's common,
+    // actionable, and not meaningfully more sensitive to reveal.
+    console.error("[login] signInWithPassword failed:", error.status, error.message);
+
+    if (error.message.toLowerCase().includes("email not confirmed")) {
+      return {
+        error: "Please confirm your email address first — check your inbox (and spam folder) for the confirmation link.",
+      };
+    }
+
     return { error: "Invalid email or password." };
   }
 
