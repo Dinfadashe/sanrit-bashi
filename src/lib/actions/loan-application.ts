@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { calculateLoan } from "@/lib/finance";
 import { effectiveMaxLoanAmount } from "@/lib/loan-product";
 import { isKycComplete } from "@/lib/kyc-status";
+import { isProfileComplete } from "@/lib/profile-status";
 import { sendApplicationSubmittedEmail } from "@/lib/email/send";
 import type { ActionResult } from "./auth";
 import type { LoanProductRow } from "@/types/database";
@@ -25,9 +26,15 @@ export async function applyForLoanAction(_prev: ActionResult, formData: FormData
 
   const { data: kycCheck } = await supabase
     .from("profiles")
-    .select("kyc_status, liveness_captured_at")
+    .select(
+      "kyc_status, liveness_captured_at, phone, date_of_birth, address, city, state, employment_status, monthly_income, bank_name, account_name, account_number, emergency_contact_name, emergency_contact_phone, emergency_contact_relationship"
+    )
     .eq("user_id", user.id)
     .maybeSingle();
+
+  if (!isProfileComplete(kycCheck)) {
+    return { error: "Please complete your profile (personal, employment, bank, and emergency contact details) before applying." };
+  }
 
   if (!isKycComplete(kycCheck)) {
     return { error: "You must complete identity verification (NIN, BVN, and a photo) before applying for a loan." };

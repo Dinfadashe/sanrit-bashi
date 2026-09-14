@@ -5,6 +5,7 @@ import { getActiveLoanProduct, effectiveMaxLoanAmount } from "@/lib/loan-product
 import { getOpenApplication } from "@/lib/borrower";
 import { createClient } from "@/lib/supabase/server";
 import { isKycComplete } from "@/lib/kyc-status";
+import { isProfileComplete } from "@/lib/profile-status";
 import { Alert } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { ApplyForm } from "@/components/site/ApplyForm";
@@ -25,13 +26,37 @@ export default async function ApplyPage() {
       .maybeSingle(),
     supabase
       .from("profiles")
-      .select("credit_limit, kyc_status, liveness_captured_at")
+      .select(
+        "credit_limit, kyc_status, liveness_captured_at, phone, date_of_birth, address, city, state, employment_status, monthly_income, bank_name, account_name, account_number, emergency_contact_name, emergency_contact_phone, emergency_contact_relationship"
+      )
       .eq("user_id", user.id)
       .maybeSingle(),
   ]);
 
   if (openApplication) {
     redirect("/dashboard?applied=1");
+  }
+
+  // Checked before KYC — it's the more foundational step (KYC itself
+  // compares against the borrower's stated name/date of birth, so it
+  // depends on the profile already being filled in).
+  if (!isProfileComplete(profile)) {
+    return (
+      <div className="mx-auto max-w-2xl">
+        <h1 className="text-2xl font-bold text-brand-navy">Apply for a Loan</h1>
+        <div className="mt-6">
+          <Alert variant="warning" title="Complete your profile first">
+            Please fill in your personal, employment, bank, and emergency contact details before
+            applying for a loan.
+          </Alert>
+          <div className="mt-4">
+            <Link href="/dashboard/profile">
+              <Button>Complete Profile</Button>
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (!isKycComplete(profile)) {
