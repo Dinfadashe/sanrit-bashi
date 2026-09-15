@@ -10,6 +10,8 @@ import {
   RecordPaymentForm,
   RateLoanForm,
 } from "@/components/site/AdminLoanActionForms";
+import { PrintButton } from "@/components/site/PrintButton";
+import { PrintHeader } from "@/components/site/PrintHeader";
 import type { LoanApplicationRow, LoanRow, ProfileRow, RepaymentScheduleRow } from "@/types/database";
 
 async function getSignedPhotoUrl(path: string | null): Promise<string | null> {
@@ -39,6 +41,9 @@ export default async function AdminLoanDetailPage({
     ]);
     const profileRow = profile as ProfileRow | null;
 
+    // Both of these live in private, admin-only buckets — signed URLs are
+    // generated fresh on each page load via the service role. A borrower's
+    // own session can never reach either, by design.
     const [receiptUrl, photoUrl] = await Promise.all([
       loanRow.disbursement_receipt_path
         ? (async () => {
@@ -199,9 +204,14 @@ function LoanView({
 }) {
   return (
     <div className="space-y-6">
+      <PrintHeader subtitle="Loan Record" />
+
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold text-brand-navy">Loan {loan.id.slice(0, 8).toUpperCase()}</h1>
-        <StatusBadge status={loan.status} />
+        <div className="flex items-center gap-3">
+          <StatusBadge status={loan.status} />
+          <PrintButton />
+        </div>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -216,8 +226,8 @@ function LoanView({
         </p>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="space-y-6 lg:col-span-2">
+      <div className="grid gap-6 lg:grid-cols-3 print:grid-cols-1">
+        <div className="space-y-6 lg:col-span-2 print:col-span-1">
           <Card>
             <h2 className="font-semibold text-brand-navy">Borrower</h2>
             <div className="mt-3 flex flex-col gap-4 sm:flex-row">
@@ -296,7 +306,7 @@ function LoanView({
           </div>
         </div>
 
-        <div className="space-y-6">
+        <div className="space-y-6 print:hidden">
           {loan.status === "approved" && (
             <Card>
               <h2 className="mb-3 font-semibold text-brand-navy">Disburse Loan</h2>
@@ -339,7 +349,7 @@ function KycPhoto({ url }: { url: string }) {
 
 function ReceiptLink({ url }: { url: string }) {
   return (
-    <a href={url} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-brand-blue-500 hover:underline">
+    <a href={url} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-brand-blue-500 hover:underline print:hidden">
       View receipt (admin only) →
     </a>
   );

@@ -21,7 +21,7 @@ export function AdminNav({ fullName, role }: { fullName: string; role: string })
   const [open, setOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-40 border-b border-slate-200 bg-brand-navy">
+    <header className="sticky top-0 z-40 border-b border-slate-200 bg-brand-navy print:hidden">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
         <Link href="/admin" className="flex items-center gap-2">
           <Image src="/logo.png" alt="SANRIT BASHI" width={30} height={30} className="h-7 w-7 object-contain" />

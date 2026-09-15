@@ -4,6 +4,8 @@ import { getLoanById, getSchedule, getNextDueInstallment } from "@/lib/borrower"
 import { formatNaira } from "@/lib/finance";
 import { Card, StatusBadge, SummaryStat, Alert } from "@/components/ui/Card";
 import { PayWithPaystackForm } from "@/components/site/PayWithPaystackForm";
+import { PrintButton } from "@/components/site/PrintButton";
+import { PrintHeader } from "@/components/site/PrintHeader";
 
 export default async function LoanDetailPage({
   params,
@@ -23,16 +25,21 @@ export default async function LoanDetailPage({
 
   return (
     <div className="space-y-8">
+      <PrintHeader subtitle="Loan Statement" />
+
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-brand-navy">Loan {loan.id.slice(0, 8).toUpperCase()}</h1>
           <p className="mt-1 text-brand-slate">Created {new Date(loan.created_at).toLocaleDateString()}</p>
         </div>
-        <StatusBadge status={loan.status} />
+        <div className="flex items-center gap-3">
+          <StatusBadge status={loan.status} />
+          <PrintButton />
+        </div>
       </div>
 
       {justPaid && (
-        <Alert variant="info" title="Payment received by Paystack">
+        <Alert variant="info" title="Payment received by Paystack" className="print:hidden">
           We&apos;re confirming your payment now — this page will update automatically within a few
           seconds once it&apos;s processed. No need to pay again.
         </Alert>
@@ -46,7 +53,7 @@ export default async function LoanDetailPage({
       </div>
 
       {canPay && (
-        <Card>
+        <Card className="print:hidden">
           <h2 className="mb-3 font-semibold text-brand-navy">Make a Repayment</h2>
           <div className="max-w-sm">
             <PayWithPaystackForm
