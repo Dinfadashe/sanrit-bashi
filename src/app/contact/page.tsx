@@ -7,8 +7,8 @@ export const metadata: Metadata = { title: "Contact" };
 // Edit these details directly — kept in one place for easy updates.
 const CONTACT = {
   businessName: "SANRIT Business Consult",
-  email: "support@sanritbashi.com",
-  phone: "+234 800 000 0000",
+  email: "sanritbashi@gmail.com",
+  phone: "+234 708 624 2715",
   address: "Jos, Plateau State, Nigeria",
 };
 
