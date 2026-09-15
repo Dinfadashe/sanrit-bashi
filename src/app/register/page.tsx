@@ -67,6 +67,22 @@ export default function RegisterPage() {
             />
           </div>
 
+          <label className="flex items-start gap-3 text-sm">
+            <input
+              type="checkbox"
+              name="termsAccepted"
+              required
+              className="mt-0.5 h-4 w-4 accent-brand-blue-500"
+            />
+            <span>
+              I have read and agree to the{" "}
+              <Link href="/terms" target="_blank" className="font-semibold text-brand-blue-500 hover:underline">
+                Terms and Conditions
+              </Link>
+              .
+            </span>
+          </label>
+
           <Button type="submit" fullWidth loading={pending}>
             Create account
           </Button>

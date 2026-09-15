@@ -79,6 +79,7 @@ export type ProfileRow = {
   kyc_notes: string | null;
   liveness_photo_path: string | null;
   liveness_captured_at: string | null;
+  terms_accepted_at: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;

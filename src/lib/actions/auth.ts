@@ -17,6 +17,7 @@ export async function registerAction(_prev: ActionResult, formData: FormData): P
   const phone = String(formData.get("phone") ?? "").trim();
   const password = String(formData.get("password") ?? "");
   const confirmPassword = String(formData.get("confirmPassword") ?? "");
+  const termsAccepted = formData.get("termsAccepted") === "on";
 
   if (!fullName || !email || !password) {
     return { error: "Full name, email and password are required." };
@@ -26,6 +27,9 @@ export async function registerAction(_prev: ActionResult, formData: FormData): P
   }
   if (password !== confirmPassword) {
     return { error: "Passwords do not match." };
+  }
+  if (!termsAccepted) {
+    return { error: "You must read and agree to the Terms and Conditions to create an account." };
   }
 
   const supabase = await createClient();
@@ -50,6 +54,7 @@ export async function registerAction(_prev: ActionResult, formData: FormData): P
       full_name: fullName,
       email,
       phone,
+      terms_accepted_at: new Date().toISOString(),
     });
 
     await sendWelcomeEmail({ to: email, fullName }).catch(() => {
