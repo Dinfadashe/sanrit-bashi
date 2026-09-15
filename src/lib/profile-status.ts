@@ -1,21 +1,20 @@
-import type { ProfileRow } from "@/types/database";
+import type { EmploymentStatus } from "@/types/database";
 
-type RequiredFields = Pick
-  ProfileRow,
-  | "phone"
-  | "date_of_birth"
-  | "address"
-  | "city"
-  | "state"
-  | "employment_status"
-  | "monthly_income"
-  | "bank_name"
-  | "account_name"
-  | "account_number"
-  | "emergency_contact_name"
-  | "emergency_contact_phone"
-  | "emergency_contact_relationship"
->;
+interface RequiredFields {
+  phone: string | null;
+  date_of_birth: string | null;
+  address: string | null;
+  city: string | null;
+  state: string | null;
+  employment_status: EmploymentStatus | null;
+  monthly_income: number | null;
+  bank_name: string | null;
+  account_name: string | null;
+  account_number: string | null;
+  emergency_contact_name: string | null;
+  emergency_contact_phone: string | null;
+  emergency_contact_relationship: string | null;
+}
 
 /**
  * A borrower must fill in all of these before they can apply for a loan.
