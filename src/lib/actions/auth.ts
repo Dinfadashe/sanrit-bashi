@@ -7,6 +7,7 @@ import { sendWelcomeEmail } from "@/lib/email/send";
 export interface ActionResult {
   error?: string;
   success?: boolean;
+  message?: string;
 }
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";

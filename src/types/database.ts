@@ -180,6 +180,8 @@ export type LoanRow = {
   disbursement_account_name: string | null;
   disbursement_account_number: string | null;
   disbursement_receipt_path: string | null;
+  late_fee_accrued: number;
+  last_penalty_accrual_date: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -233,6 +235,28 @@ export type AuditLogRow = {
   created_at: string;
 }
 
+export type CapitalEntryType = "injection" | "withdrawal";
+
+export type CapitalEntryRow = {
+  id: string;
+  entry_type: CapitalEntryType;
+  amount: number;
+  note: string | null;
+  entry_date: string;
+  created_by: string | null;
+  created_at: string;
+}
+
+export type ExpenseRow = {
+  id: string;
+  amount: number;
+  category: string;
+  description: string | null;
+  expense_date: string;
+  created_by: string | null;
+  created_at: string;
+}
+
 // Generic helper: a table definition for the supabase-js client generic.
 // Insert/Update are intentionally permissive (Partial) — every write path in
 // this app goes through a validated server action, not a raw client insert,
@@ -258,6 +282,8 @@ export type Database = {
       payments: Table<PaymentRow>;
       notifications: Table<NotificationRow>;
       audit_logs: Table<AuditLogRow>;
+      capital_entries: Table<CapitalEntryRow>;
+      expenses: Table<ExpenseRow>;
     };
     Views: Record<string, never>;
     Functions: {
@@ -284,6 +310,10 @@ export type Database = {
           p_admin_id: string;
         };
         Returns: number | null;
+      };
+      accrue_daily_late_fees: {
+        Args: Record<string, never>;
+        Returns: { loan_id: string; days_charged: number; amount_charged: number }[];
       };
     };
   };
