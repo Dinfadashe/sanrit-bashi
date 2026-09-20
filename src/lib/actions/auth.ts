@@ -45,7 +45,14 @@ export async function registerAction(_prev: ActionResult, formData: FormData): P
   });
 
   if (error) {
-    return { error: error.message };
+    // Logged server-side only. Supabase's raw error can reveal whether an
+    // email is already registered (user enumeration) — never forward it
+    // verbatim to the client, regardless of what it says.
+    console.error("[register] signUp failed:", error.status, error.message);
+    return {
+      error:
+        "Could not create your account with these details. If you already have an account, try logging in or resetting your password instead.",
+    };
   }
 
   const userId = data.user?.id;

@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { getKycProvider } from "@/lib/kyc";
+import { sniffFileType } from "@/lib/file-validation";
 import type { ActionResult } from "./auth";
 
 /** Loose match: case/whitespace-insensitive, ignores punctuation, checks the name parts overlap substantially. */
@@ -230,18 +231,24 @@ export async function submitLivenessPhotoAction(formData: FormData): Promise<Act
   if (!(photo instanceof File)) {
     return { error: "No photo was received. Please try capturing it again." };
   }
-  if (!photo.type.startsWith("image/")) {
-    return { error: "That doesn't look like an image. Please try again." };
-  }
   if (photo.size > MAX_PHOTO_BYTES) {
     return { error: "Photo is too large. Please try again." };
+  }
+
+  // Check the actual file bytes, not the client-reported type (File.type is
+  // just a label the browser sends — fully attacker-controlled). Our own
+  // capture component always produces JPEG, so that's the only type
+  // legitimately expected here.
+  const sniffed = await sniffFileType(photo);
+  if (sniffed !== "image/jpeg") {
+    return { error: "That doesn't look like a valid photo. Please try capturing it again." };
   }
 
   const db = createAdminClient();
   const path = `${user.id}/${Date.now()}.jpg`;
 
   const { error: uploadError } = await db.storage.from("kyc-photos").upload(path, photo, {
-    contentType: photo.type,
+    contentType: sniffed,
     upsert: true,
   });
 

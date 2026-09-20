@@ -3,7 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { generateRepaymentSchedule } from "@/lib/finance";
+import { generateRepaymentSchedule, calculateLoan, formatNaira } from "@/lib/finance";
+import { effectiveMaxLoanAmount } from "@/lib/loan-product";
+import { isKycComplete } from "@/lib/kyc-status";
+import { isProfileComplete } from "@/lib/profile-status";
+import { sniffFileType } from "@/lib/file-validation";
 import {
   sendLoanApprovedEmail,
   sendLoanRejectedEmail,
@@ -12,7 +16,7 @@ import {
   sendLoanCompletedEmail,
 } from "@/lib/email/send";
 import type { ActionResult } from "./auth";
-import type { LoanApplicationRow, PaymentMethod } from "@/types/database";
+import type { LoanApplicationRow, LoanProductRow, PaymentMethod } from "@/types/database";
 
 export async function approveApplicationAction(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
   const { admin } = await requireAdmin();
@@ -32,6 +36,71 @@ export async function approveApplicationAction(_prev: ActionResult, formData: Fo
     return { error: `Cannot approve an application with status "${app.status}".` };
   }
 
+  // SECURITY: never trust this application's own stored financial figures
+  // (interest_rate, interest_amount, processing_fee, total_repayment) or
+  // assume its gate checks (KYC, profile, one-loan-at-a-time) were actually
+  // enforced. Row Level Security only guarantees this row belongs to its
+  // owner and was inserted with status='pending' — it says nothing about
+  // whether the numbers are internally consistent, since a borrower's own
+  // session could in principle insert a row directly via the Supabase REST
+  // API, bypassing applyForLoanAction's validation entirely. So everything
+  // that determines real money is re-derived fresh, right here, from
+  // current trusted data — never copied from the application row.
+
+  const [{ data: product }, { data: profile }, { data: openLoan }] = await Promise.all([
+    db.from("loan_products").select("*").eq("is_active", true).limit(1).maybeSingle(),
+    db
+      .from("profiles")
+      .select(
+        "kyc_status, liveness_captured_at, phone, date_of_birth, address, city, state, employment_status, monthly_income, bank_name, account_name, account_number, emergency_contact_name, emergency_contact_phone, emergency_contact_relationship, credit_limit, full_name, email"
+      )
+      .eq("user_id", app.user_id)
+      .maybeSingle(),
+    db
+      .from("loans")
+      .select("id")
+      .eq("user_id", app.user_id)
+      .in("status", ["approved", "disbursed", "active", "defaulted"])
+      .maybeSingle(),
+  ]);
+
+  if (!product) {
+    return { error: "No active loan product is configured — cannot approve." };
+  }
+  const loanProduct = product as LoanProductRow;
+
+  if (!isProfileComplete(profile)) {
+    return { error: "Cannot approve: this borrower's profile is incomplete." };
+  }
+  if (!isKycComplete(profile)) {
+    return { error: "Cannot approve: this borrower has not completed identity verification." };
+  }
+  if (openLoan) {
+    return { error: "Cannot approve: this borrower already has another open loan." };
+  }
+
+  const effectiveMaximum = effectiveMaxLoanAmount(loanProduct, profile?.credit_limit ?? null);
+  if (app.amount < loanProduct.minimum_amount || app.amount > effectiveMaximum) {
+    return {
+      error: `Cannot approve: requested amount is outside this borrower's allowed range (${formatNaira(loanProduct.minimum_amount)}–${formatNaira(effectiveMaximum)}).`,
+    };
+  }
+  if (app.duration < loanProduct.minimum_duration || app.duration > loanProduct.maximum_duration) {
+    return { error: "Cannot approve: requested duration is outside the allowed range." };
+  }
+
+  let calc;
+  try {
+    calc = calculateLoan({
+      principal: app.amount,
+      interestRatePercent: loanProduct.interest_rate,
+      processingFeeRatePercent: loanProduct.processing_fee_rate,
+      durationMonths: app.duration,
+    });
+  } catch {
+    return { error: "Cannot approve: invalid amount or duration." };
+  }
+
   const now = new Date().toISOString();
 
   const { data: loan, error: loanError } = await db
@@ -39,15 +108,15 @@ export async function approveApplicationAction(_prev: ActionResult, formData: Fo
     .insert({
       application_id: app.id,
       user_id: app.user_id,
-      loan_product_id: app.loan_product_id,
-      principal_amount: app.amount,
-      interest_rate: app.interest_rate,
-      interest_amount: app.interest_amount,
-      processing_fee: app.processing_fee,
-      total_repayment: app.total_repayment,
+      loan_product_id: loanProduct.id,
+      principal_amount: calc.principal,
+      interest_rate: calc.interestRatePercent,
+      interest_amount: calc.interestAmount,
+      processing_fee: calc.processingFee,
+      total_repayment: calc.totalRepayment,
       amount_repaid: 0,
-      outstanding_balance: app.total_repayment,
-      duration: app.duration,
+      outstanding_balance: calc.totalRepayment,
+      duration: calc.durationMonths,
       status: "approved",
       approved_at: now,
       approved_by: admin.id,
@@ -71,15 +140,27 @@ export async function approveApplicationAction(_prev: ActionResult, formData: Fo
     return { error: "Could not create the loan record." };
   }
 
+  // Bring the application record in line with what was actually approved —
+  // keeps the historical record honest even if the stored figures had
+  // drifted from current settings (or were never valid to begin with).
   await db
     .from("loan_applications")
-    .update({ status: "approved", reviewed_at: now, reviewed_by: admin.id })
+    .update({
+      status: "approved",
+      reviewed_at: now,
+      reviewed_by: admin.id,
+      interest_rate: calc.interestRatePercent,
+      processing_fee_rate: loanProduct.processing_fee_rate,
+      processing_fee: calc.processingFee,
+      interest_amount: calc.interestAmount,
+      total_repayment: calc.totalRepayment,
+    })
     .eq("id", app.id);
 
   await db.from("notifications").insert({
     user_id: app.user_id,
     title: "Loan approved",
-    message: `Your loan application for ₦${app.amount.toLocaleString()} has been approved.`,
+    message: `Your loan application for ₦${calc.principal.toLocaleString()} has been approved.`,
     type: "loan_approved",
   });
 
@@ -92,12 +173,11 @@ export async function approveApplicationAction(_prev: ActionResult, formData: Fo
     description: `Approved application, created loan ${loan.id}`,
   });
 
-  const { data: profile } = await db.from("profiles").select("full_name, email").eq("user_id", app.user_id).maybeSingle();
   if (profile) {
     await sendLoanApprovedEmail({
       to: profile.email,
       fullName: profile.full_name,
-      totalRepayment: app.total_repayment,
+      totalRepayment: calc.totalRepayment,
     }).catch(() => {});
   }
 
@@ -167,11 +247,15 @@ export async function disburseLoanAction(_prev: ActionResult, formData: FormData
   if (!(receipt instanceof File) || receipt.size === 0) {
     return { error: "Please upload a disbursement receipt." };
   }
-  if (!receipt.type.startsWith("image/") && receipt.type !== "application/pdf") {
-    return { error: "Receipt must be an image or a PDF." };
-  }
   if (receipt.size > MAX_RECEIPT_BYTES) {
     return { error: "Receipt file is too large (max 8MB)." };
+  }
+
+  // Check the actual file bytes, not the client-reported type — a
+  // client-reported MIME type is just a label, fully attacker-controlled.
+  const sniffed = await sniffFileType(receipt);
+  if (!sniffed) {
+    return { error: "Receipt must be a real JPEG, PNG, or PDF file." };
   }
 
   const db = createAdminClient();
@@ -183,11 +267,11 @@ export async function disburseLoanAction(_prev: ActionResult, formData: FormData
 
   // Admin-only bucket — a borrower's own session has no access to this at
   // all, by design (see migration 0007). Kept for internal reference only.
-  const extension = receipt.type === "application/pdf" ? "pdf" : receipt.type.split("/")[1] || "bin";
+  const extension = sniffed === "application/pdf" ? "pdf" : sniffed.split("/")[1];
   const receiptPath = `${loanId}/${Date.now()}.${extension}`;
 
   const { error: uploadError } = await db.storage.from("disbursement-receipts").upload(receiptPath, receipt, {
-    contentType: receipt.type,
+    contentType: sniffed,
     upsert: true,
   });
 
