@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { requireAdmin } from "@/lib/auth/require-admin";
 import type { CapitalEntryRow, ExpenseRow } from "@/types/database";
 
 export interface FinancialSummary {
@@ -19,9 +20,9 @@ export interface FinancialSummary {
  * Uses the admin (service-role) client deliberately: capital_entries and
  * expenses have RLS enabled with NO policies for the authenticated role at
  * all, so a regular session-based client would always see zero rows here,
- * even for a real admin. Only ever call this from a page/action already
- * gated by requireAdmin() — this function does not check admin status
- * itself.
+ * even for a real admin. Because the service-role client bypasses every
+ * database protection, each function here verifies the caller is an admin
+ * itself rather than trusting whichever page called it.
  *
  * IMPORTANT APPROXIMATION: a repayment isn't recorded as "this much was
  * principal, this much was interest" — record_payment() just applies a
@@ -33,6 +34,7 @@ export interface FinancialSummary {
  * approximation for a flat-rate loan — not a penny-exact ledger.
  */
 export async function getFinancialSummary(): Promise<FinancialSummary> {
+  await requireAdmin();
   const supabase = createAdminClient();
 
   const [{ data: capitalEntries }, { data: expenseRows }, { data: loans }] = await Promise.all([
@@ -94,6 +96,7 @@ function round2(n: number): number {
 }
 
 export async function getCapitalEntries(limit = 50): Promise<CapitalEntryRow[]> {
+  await requireAdmin();
   const supabase = createAdminClient();
   const { data } = await supabase
     .from("capital_entries")
@@ -104,6 +107,7 @@ export async function getCapitalEntries(limit = 50): Promise<CapitalEntryRow[]> 
 }
 
 export async function getExpenses(limit = 50): Promise<ExpenseRow[]> {
+  await requireAdmin();
   const supabase = createAdminClient();
   const { data } = await supabase
     .from("expenses")

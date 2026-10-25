@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { sendWelcomeEmail } from "@/lib/email/send";
 
 export interface ActionResult {
@@ -22,6 +23,9 @@ export async function registerAction(_prev: ActionResult, formData: FormData): P
 
   if (!fullName || !email || !password) {
     return { error: "Full name, email and password are required." };
+  }
+  if (fullName.length > 100) {
+    return { error: "Full name is too long." };
   }
   if (password.length < 8) {
     return { error: "Password must be at least 8 characters." };
@@ -55,15 +59,31 @@ export async function registerAction(_prev: ActionResult, formData: FormData): P
     };
   }
 
+  // When the email already belongs to an account, Supabase returns a
+  // placeholder user with no identities instead of an error (so the response
+  // doesn't reveal that the account exists). Respond exactly as we would for
+  // a new signup, but do nothing else — no profile, and crucially no
+  // "welcome" email, which would otherwise let anyone trigger emails to an
+  // existing user's inbox with text of their choosing.
+  const isExistingAccount = Array.isArray(data.user?.identities) && data.user.identities.length === 0;
+
   const userId = data.user?.id;
-  if (userId) {
-    await supabase.from("profiles").insert({
+  if (userId && !isExistingAccount) {
+    // Created with the service role, not the visitor's own session: with
+    // email confirmation on there IS no session yet (so a session-based
+    // insert silently fails), and the profile — including the recorded
+    // terms acceptance — must come from the server, never from the browser.
+    const admin = createAdminClient();
+    const { error: profileError } = await admin.from("profiles").insert({
       user_id: userId,
       full_name: fullName,
       email,
       phone,
       terms_accepted_at: new Date().toISOString(),
     });
+    if (profileError && profileError.code !== "23505") {
+      console.error("[register] profile creation failed:", profileError.message);
+    }
 
     await sendWelcomeEmail({ to: email, fullName }).catch(() => {
       // Email failures should never block registration.

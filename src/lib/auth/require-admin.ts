@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
@@ -8,10 +9,12 @@ import { createClient } from "@/lib/supabase/server";
  * non-admin can only ever see their own (non-existent) admin row, so this
  * check cannot be spoofed from the client.
  *
- * Use this at the top of every /admin Server Component, Route Handler, and
- * Server Action. Never trust a role passed in from the client.
+ * Use this at the top of every /admin Server Action and Route Handler, and inside
+ * any data helper that uses the service-role client. Memoised per request, so
+ * calling it in several places costs one lookup. Never trust a role passed in
+ * from the client.
  */
-export async function requireAdmin() {
+export const requireAdmin = cache(async function requireAdmin() {
   const supabase = await createClient();
   const {
     data: { user },
@@ -33,7 +36,7 @@ export async function requireAdmin() {
   }
 
   return { user, admin };
-}
+});
 
 /** Verifies the current request belongs to any signed-in borrower. */
 export async function requireUser() {

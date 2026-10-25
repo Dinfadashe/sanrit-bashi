@@ -38,7 +38,7 @@ export async function setCreditLimitAction(_prev: ActionResult, formData: FormDa
   let creditLimit: number | null = null;
   if (raw !== "") {
     creditLimit = Number(raw);
-    if (Number.isNaN(creditLimit) || creditLimit < 0) {
+    if (!Number.isFinite(creditLimit) || creditLimit < 0) {
       return { error: "Credit limit must be a positive number, or left blank to remove the override." };
     }
   }
@@ -71,8 +71,15 @@ export async function updateLoanSettingsAction(_prev: ActionResult, formData: Fo
   const minimumDuration = Number(formData.get("minimumDuration"));
   const maximumDuration = Number(formData.get("maximumDuration"));
 
-  if ([minimumAmount, maximumAmount, interestRate, processingFeeRate, minimumDuration, maximumDuration].some(Number.isNaN)) {
+  if (![minimumAmount, maximumAmount, interestRate, processingFeeRate, minimumDuration, maximumDuration].every(Number.isFinite)) {
     return { error: "All fields must be valid numbers." };
+  }
+  if (minimumAmount < 1) return { error: "Minimum amount must be at least ₦1." };
+  if (interestRate > 100 || processingFeeRate > 100) {
+    return { error: "Rates above 100% look like a typo — please double-check." };
+  }
+  if (!Number.isInteger(minimumDuration) || !Number.isInteger(maximumDuration) || minimumDuration < 1 || maximumDuration > 60) {
+    return { error: "Durations must be whole months between 1 and 60." };
   }
   if (maximumAmount < minimumAmount) return { error: "Maximum amount must be at least the minimum amount." };
   if (maximumDuration < minimumDuration) return { error: "Maximum duration must be at least the minimum duration." };

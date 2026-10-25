@@ -1,5 +1,5 @@
 import { formatNaira } from "@/lib/finance";
-import { emailLayout } from "./layout";
+import { emailLayout, escapeHtml as esc } from "./layout";
 
 const p = (text: string) => `<p style="margin:0 0 16px 0;font-size:15px;line-height:1.6;color:#334155;">${text}</p>`;
 const heading = (text: string) =>
@@ -9,7 +9,7 @@ export function welcomeEmail(fullName: string) {
   return emailLayout({
     title: "Welcome to SANRIT BASHI",
     bodyHtml:
-      heading(`Welcome, ${fullName}!`) +
+      heading(`Welcome, ${esc(fullName)}!`) +
       p("Your SANRIT BASHI account has been created. Complete your profile to get ready to apply for a loan.") +
       p("Your Goals. Our Support."),
   });
@@ -20,7 +20,7 @@ export function applicationSubmittedEmail(fullName: string, amount: number) {
     title: "Application received",
     bodyHtml:
       heading("We've received your application") +
-      p(`Hi ${fullName}, your application for ${formatNaira(amount)} is now Pending review. We'll notify you as soon as a decision is made.`),
+      p(`Hi ${esc(fullName)}, your application for ${formatNaira(amount)} is now Pending review. We'll notify you as soon as a decision is made.`),
   });
 }
 
@@ -29,7 +29,7 @@ export function loanApprovedEmail(fullName: string, totalRepayment: number) {
     title: "Loan approved",
     bodyHtml:
       heading("Your loan has been approved") +
-      p(`Congratulations, ${fullName}! Your loan has been approved with a total repayment of ${formatNaira(totalRepayment)}. Disbursement details will follow shortly.`),
+      p(`Congratulations, ${esc(fullName)}! Your loan has been approved with a total repayment of ${formatNaira(totalRepayment)}. Disbursement details will follow shortly.`),
   });
 }
 
@@ -38,8 +38,8 @@ export function loanRejectedEmail(fullName: string, reason: string) {
     title: "Application update",
     bodyHtml:
       heading("Update on your application") +
-      p(`Hi ${fullName}, unfortunately your loan application was not approved this time.`) +
-      p(`<strong>Reason:</strong> ${reason}`),
+      p(`Hi ${esc(fullName)}, unfortunately your loan application was not approved this time.`) +
+      p(`<strong>Reason:</strong> ${esc(reason)}`),
   });
 }
 
@@ -48,7 +48,7 @@ export function loanDisbursedEmail(fullName: string, amount: number) {
     title: "Loan disbursed",
     bodyHtml:
       heading("Your loan has been disbursed") +
-      p(`Hi ${fullName}, ${formatNaira(amount)} has been disbursed to you. Your repayment schedule is now active on your dashboard.`),
+      p(`Hi ${esc(fullName)}, ${formatNaira(amount)} has been disbursed to you. Your repayment schedule is now active on your dashboard.`),
   });
 }
 
@@ -57,7 +57,7 @@ export function paymentReceivedEmail(fullName: string, amount: number, outstandi
     title: "Payment received",
     bodyHtml:
       heading("We've received your payment") +
-      p(`Hi ${fullName}, we received your payment of ${formatNaira(amount)}. Your outstanding balance is now ${formatNaira(outstandingBalance)}.`),
+      p(`Hi ${esc(fullName)}, we received your payment of ${formatNaira(amount)}. Your outstanding balance is now ${formatNaira(outstandingBalance)}.`),
   });
 }
 
@@ -66,7 +66,7 @@ export function loanCompletedEmail(fullName: string) {
     title: "Loan fully repaid",
     bodyHtml:
       heading("Your loan is fully repaid") +
-      p(`Congratulations, ${fullName}! Your loan has been fully repaid and is now marked complete. Thank you for banking with SANRIT BASHI.`),
+      p(`Congratulations, ${esc(fullName)}! Your loan has been fully repaid and is now marked complete. Thank you for banking with SANRIT BASHI.`),
   });
 }
 
@@ -75,6 +75,6 @@ export function paymentReminderEmail(fullName: string, amountDue: number, dueDat
     title: "Upcoming repayment reminder",
     bodyHtml:
       heading("Your repayment is coming up") +
-      p(`Hi ${fullName}, a repayment of ${formatNaira(amountDue)} is due on ${dueDate}. Please ensure funds are available.`),
+      p(`Hi ${esc(fullName)}, a repayment of ${formatNaira(amountDue)} is due on ${esc(dueDate)}. Please ensure funds are available.`),
   });
 }

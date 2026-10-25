@@ -24,6 +24,21 @@ function namesRoughlyMatch(a: string, b: string): boolean {
   return overlap >= Math.min(partsA.length, partsB.length) - 1 || overlap >= 2;
 }
 
+
+const KYC_LIMIT_MESSAGE =
+  "Too many verification attempts. Please try again in 24 hours, or contact support if you need help.";
+
+/**
+ * Each NIN/BVN check costs real money on a live Dojah account, and the
+ * forms are open to any registered user — so cap attempts per user.
+ * Atomic in the database (see consume_kyc_attempt in migration 0012).
+ */
+async function consumeKycAttempt(userId: string): Promise<boolean> {
+  const db = createAdminClient();
+  const { data } = await db.rpc("consume_kyc_attempt", { p_user_id: userId });
+  return data === true;
+}
+
 export async function submitNinAction(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
   const supabase = await createClient();
   const {
@@ -42,6 +57,10 @@ export async function submitNinAction(_prev: ActionResult, formData: FormData): 
     .eq("user_id", user.id)
     .maybeSingle();
   if (!profile) return { error: "Complete your profile before submitting KYC." };
+
+  if (!(await consumeKycAttempt(user.id))) {
+    return { error: KYC_LIMIT_MESSAGE };
+  }
 
   const provider = getKycProvider();
   const result = await provider.verifyNin(nin, {
@@ -115,6 +134,10 @@ export async function submitBvnAction(_prev: ActionResult, formData: FormData): 
   if (!profile) return { error: "Complete your profile before submitting KYC." };
   if (profile.kyc_status !== "nin_verified") {
     return { error: "Verify your NIN first before submitting your BVN." };
+  }
+
+  if (!(await consumeKycAttempt(user.id))) {
+    return { error: KYC_LIMIT_MESSAGE };
   }
 
   const provider = getKycProvider();

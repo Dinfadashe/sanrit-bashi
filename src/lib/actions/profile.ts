@@ -18,6 +18,9 @@ export async function updateProfileAction(_prev: ActionResult, formData: FormDat
   if (!fullName) {
     return { error: "Full name is required." };
   }
+  if (fullName.length > 100) {
+    return { error: "Full name is too long." };
+  }
 
   const monthlyIncomeRaw = String(formData.get("monthlyIncome") ?? "").trim();
   const monthlyIncome = monthlyIncomeRaw ? Number(monthlyIncomeRaw) : null;

@@ -49,8 +49,15 @@ export async function POST(request: Request) {
   const amountKobo: number | undefined = data?.amount;
 
   if (!reference || !loanId || typeof amountKobo !== "number") {
-    console.error("[paystack webhook] Missing reference/loan_id/amount in payload", event);
+    // Log only identifiers — the full payload contains the payer's email and card details.
+    console.error(`[paystack webhook] Missing reference/loan_id/amount (reference: ${reference ?? "none"})`);
     return new Response("ok", { status: 200 }); // Ack anyway — retrying won't fix a malformed payload.
+  }
+
+  // Only apply money that actually arrived, in the currency our loans use.
+  if (data?.status !== "success" || data?.currency !== "NGN") {
+    console.error(`[paystack webhook] Ignoring non-NGN or non-successful charge (reference: ${reference})`);
+    return new Response("ok", { status: 200 });
   }
 
   const amountNaira = amountKobo / 100;

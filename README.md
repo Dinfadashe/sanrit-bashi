@@ -130,16 +130,39 @@ Paystack (repayment collection) · Resend (transactional email) · decimal.js
 ## Security notes worth knowing
 
 - Every financial calculation is re-validated server-side — a number shown
-  in the browser is never trusted for what gets written to the database.
-- Row Level Security restricts every borrower to their own rows; admin
-  status is checked against the `admin_users` table on every request, never
-  inferred from client state.
-- Sensitive fields (`credit_limit`, `kyc_status`, verification results,
-  liveness photo path) have column-level `REVOKE` protection — a borrower's
-  own authenticated session cannot write to them directly, even via the
-  Supabase client, only the server (service role) can.
-- KYC photos and disbursement receipts live in **private** storage buckets,
-  served only via short-lived signed URLs generated server-side for an
-  authenticated admin — borrowers never have access to either bucket.
-- The Paystack webhook verifies the `x-paystack-signature` HMAC before
-  trusting any payload.
+  in the browser is never trusted. In particular, **loan approval recomputes
+  interest, fees and repayment from the current loan product settings** and
+  re-checks KYC, profile completion and the one-open-loan rule, ignoring
+  whatever the stored application claims.
+- Row Level Security restricts every borrower to their own rows, and admin
+  status is checked against the `admin_users` table — never inferred from
+  client state. The whole `/admin` area is gated in **middleware** (which
+  runs on every request) as well as in its layout, and any helper that uses
+  the service-role client verifies the caller is an admin itself.
+- Database **privileges are an allowlist**, not a blocklist. Supabase grants
+  table-level access to logged-in users by default and relies on RLS — but RLS
+  only limits *rows*, and a column-level `REVOKE` does nothing when the
+  table-level grant exists. So on `profiles` (migration 0012) borrowers may
+  write only the profile-form columns; `credit_limit`, `kyc_*`,
+  verification results, liveness fields and `is_active` can only be written
+  by the server.
+- The `SECURITY DEFINER` functions (`record_payment`, `rate_loan`, …) bypass
+  RLS and contain no caller check, so `EXECUTE` is revoked from everyone
+  except the service role. **When you add a new function, grant execute
+  explicitly and only to who needs it.**
+- KYC **fails closed**: in production only live Dojah is accepted. The mock
+  provider and Dojah sandbox approve made-up identities, so they are
+  refused unless `KYC_ALLOW_TEST_MODE=true` is set deliberately. Each user
+  is limited to 6 NIN/BVN attempts per 24 hours (each costs real money).
+- Uploads are checked by their real file signature (JPEG/PNG/PDF), never the
+  browser-reported type. KYC photos and disbursement receipts live in
+  **private** buckets reachable only through short-lived signed URLs
+  generated server-side for an authenticated admin.
+- The Paystack webhook verifies the `x-paystack-signature` HMAC (constant
+  time), only applies successful NGN charges, and relies on a unique index
+  on the payment reference to make retries harmless.
+- User-supplied text placed in emails is HTML-escaped. The auth callback only
+  redirects to same-site paths.
+- **Not yet in place:** rate limiting on login / signup / password reset
+  (beyond Supabase's own limits), CAPTCHA, and encryption of NIN/BVN at rest.
+  Treat these as the next hardening steps.

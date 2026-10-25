@@ -80,6 +80,8 @@ export type ProfileRow = {
   liveness_photo_path: string | null;
   liveness_captured_at: string | null;
   terms_accepted_at: string | null;
+  kyc_attempt_count: number;
+  kyc_attempt_window_start: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -310,6 +312,10 @@ export type Database = {
           p_admin_id: string;
         };
         Returns: number | null;
+      };
+      consume_kyc_attempt: {
+        Args: { p_user_id: string; p_max?: number };
+        Returns: boolean;
       };
       accrue_daily_late_fees: {
         Args: Record<string, never>;

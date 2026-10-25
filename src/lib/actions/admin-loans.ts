@@ -279,7 +279,10 @@ export async function disburseLoanAction(_prev: ActionResult, formData: FormData
     return { error: "Could not save the disbursement receipt. Please try again." };
   }
 
-  await db
+  // Claim the loan atomically: only one request can move it from "approved"
+  // to "disbursed". A double-click or two admins acting at once would
+  // otherwise both pass the status check above and both run everything below.
+  const { data: claimed } = await db
     .from("loans")
     .update({
       status: "disbursed",
@@ -289,7 +292,14 @@ export async function disburseLoanAction(_prev: ActionResult, formData: FormData
       disbursement_method: method,
       disbursement_receipt_path: receiptPath,
     })
-    .eq("id", loanId);
+    .eq("id", loanId)
+    .eq("status", "approved")
+    .select("id");
+
+  if (!claimed || claimed.length === 0) {
+    await db.storage.from("disbursement-receipts").remove([receiptPath]);
+    return { error: "This loan has already been disbursed (or is no longer awaiting disbursement)." };
+  }
 
   // Loan becomes "active" the moment it's disbursed, ready to accept repayments.
   await db.from("loans").update({ status: "active" }).eq("id", loanId);

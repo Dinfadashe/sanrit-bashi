@@ -1,3 +1,19 @@
+/**
+ * Escapes text for safe inclusion in HTML. Anything a user (or admin) typed
+ * — names, rejection reasons — must go through this before being placed in
+ * an email. Without it, someone could register with a "name" containing
+ * HTML and have a convincing, phishing-ready email delivered, from our real
+ * sending domain, to ANY address they choose.
+ */
+export function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 export function emailLayout({ title, bodyHtml }: { title: string; bodyHtml: string }): string {
   return `<!DOCTYPE html>
 <html>

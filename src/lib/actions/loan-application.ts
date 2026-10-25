@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { calculateLoan } from "@/lib/finance";
 import { effectiveMaxLoanAmount } from "@/lib/loan-product";
 import { isKycComplete } from "@/lib/kyc-status";
@@ -183,7 +184,10 @@ export async function applyForLoanAction(_prev: ActionResult, formData: FormData
     .eq("user_id", user.id)
     .maybeSingle();
 
-  await supabase.from("notifications").insert({
+  // Notifications have no insert policy for borrowers (by design — only the
+  // server creates them), so this must use the service role; the previous
+  // session-based insert was being silently rejected.
+  await createAdminClient().from("notifications").insert({
     user_id: user.id,
     title: "Application submitted",
     message: `Your application for ₦${calc.principal.toLocaleString()} is now pending review.`,
